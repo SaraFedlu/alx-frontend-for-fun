@@ -1,8 +1,6 @@
 #!/usr/bin/python3
 """
-markdown2html.py:
-Converts a Markdown
-file to an HTML file.
+markdown2html.py: Converts a Markdown file to an HTML file.
 """
 
 import sys
@@ -17,7 +15,9 @@ def remove_c(text):
     return text.replace('c', '').replace('C', '')
 
 def convert_bold_emphasis(text):
+    # Convert bold: **text** -> <b>text</b>
     text = re.sub(r"\*\*(.*?)\*\*", r"<b>\1</b>", text)
+    # Convert emphasis: __text__ -> <em>text</em>
     text = re.sub(r"__(.*?)__", r"<em>\1</em>", text)
     return text
 
@@ -37,7 +37,7 @@ if __name__ == "__main__":
         content = file.readlines()
     
     html_content = []
-    in_ul = in_ol = False
+    in_ul = in_ol = in_paragraph = False
 
     for line in content:
         line = line.strip()
@@ -55,19 +55,31 @@ if __name__ == "__main__":
         line = convert_bold_emphasis(line)
 
         if line.startswith("#"):
+            if in_paragraph:
+                html_content.append("</p>")
+                in_paragraph = False
             level = len(line.split(" ")[0])
             heading_text = line.strip("#").strip()
             html_content.append(f"<h{level}>{heading_text}</h{level}>")
+        
         elif line.startswith("-"):
+            if in_paragraph:
+                html_content.append("</p>")
+                in_paragraph = False
             if not in_ul:
                 html_content.append("<ul>")
                 in_ul = True
             html_content.append(f"<li>{line[1:].strip()}</li>")
+        
         elif line.startswith("*"):
+            if in_paragraph:
+                html_content.append("</p>")
+                in_paragraph = False
             if not in_ol:
                 html_content.append("<ol>")
                 in_ol = True
             html_content.append(f"<li>{line[1:].strip()}</li>")
+        
         else:
             if in_ul:
                 html_content.append("</ul>")
@@ -75,16 +87,25 @@ if __name__ == "__main__":
             if in_ol:
                 html_content.append("</ol>")
                 in_ol = False
+
             if line:
-                if html_content and html_content[-1].startswith("<p>"):
+                # Handle multi-line paragraphs with <br/> tags
+                if in_paragraph:
                     html_content[-1] += f"<br/>{line}"
                 else:
-                    html_content.append(f"<p>{line}</p>")
-    
+                    html_content.append(f"<p>{line}")
+                    in_paragraph = True
+            elif in_paragraph:
+                # Close paragraph when a blank line is encountered
+                html_content.append("</p>")
+                in_paragraph = False
+
     if in_ul:
         html_content.append("</ul>")
     if in_ol:
         html_content.append("</ol>")
+    if in_paragraph:
+        html_content.append("</p>")
 
     with open(html_file, "w") as file:
         file.write("\n".join(html_content))
