@@ -1,62 +1,90 @@
 #!/usr/bin/python3
 """
-This is a script to convert a Markdown file to HTML.
-
-Usage:
-    ./markdown2html.py [input_file] [output_file]
-
-Arguments:
-    input_file: the name of the Markdown file to be converted
-    output_file: the name of the output HTML file
-
-Example:
-    ./markdown2html.py README.md README.html
+markdown2html.py: Converts a Markdown file to an HTML file.
 """
 
-import argparse
-import pathlib
+import sys
+import os
 import re
+import hashlib
 
+def md5_conversion(text):
+    return hashlib.md5(text.encode()).hexdigest()
 
-def convert_md_to_html(input_file, output_file):
-    '''
-    Converts markdown file to HTML file
-    '''
-    # Read the contents of the input file
-    with open(input_file, encoding='utf-8') as f:
-        md_content = f.readlines()
+def remove_c(text):
+    return text.replace('c', '').replace('C', '')
 
-    html_content = []
-    for line in md_content:
-        # Check if the line is a heading
-        match = re.match(r'(#){1,6} (.*)', line)
-        if match:
-            # Get the level of the heading
-            h_level = len(match.group(1))
-            # Get the content of the heading
-            h_content = match.group(2)
-            # Append the HTML equivalent of the heading
-            html_content.append(f'<h{h_level}>{h_content}</h{h_level}>\n')
-        else:
-            html_content.append(line)
+def convert_bold_emphasis(text):
+    text = re.sub(r"\*\*(.*?)\*\*", r"<b>\1</b>", text)
+    text = re.sub(r"__(.*?)__", r"<em>\1</em>", text)
+    return text
 
-    # Write the HTML content to the output file
-    with open(output_file, 'w', encoding='utf-8') as f:
-        f.writelines(html_content)
-
-
-if __name__ == '__main__':
-    # Parse command-line arguments
-    parser = argparse.ArgumentParser(description='Convert markdown to HTML')
-    parser.add_argument('input_file', help='path to input markdown file')
-    parser.add_argument('output_file', help='path to output HTML file')
-    args = parser.parse_args()
-
-    # Check if the input file exists
-    input_path = pathlib.Path(args.input_file)
-    if not input_path.is_file():
-        print(f'Missing {input_path}', file=sys.stderr)
+if __name__ == "__main__":
+    if len(sys.argv) < 3:
+        print("Usage: ./markdown2html.py README.md README.html", file=sys.stderr)
         sys.exit(1)
+    
+    md_file = sys.argv[1]
+    html_file = sys.argv[2]
 
-    # Convert the markdown file to HTML
-    convert_md_to_html(args.input_file, args.output_file)
+    if not os.path.exists(md_file):
+        print(f"Missing {md_file}", file=sys.stderr)
+        sys.exit(1)
+    
+    with open(md_file, "r") as file:
+        content = file.readlines()
+    
+    html_content = []
+    in_ul = in_ol = False
+
+    for line in content:
+        line = line.strip()
+
+        if "[[" in line and "]]" in line:
+            match = re.search(r"\[\[(.*?)\]\]", line)
+            if match:
+                line = line.replace(match.group(0), md5_conversion(match.group(1)))
+
+        if "((" in line and "))" in line:
+            match = re.search(r"\(\((.*?)\)\)", line)
+            if match:
+                line = line.replace(match.group(0), remove_c(match.group(1)))
+
+        line = convert_bold_emphasis(line)
+
+        if line.startswith("#"):
+            level = len(line.split(" ")[0])
+            heading_text = line.strip("#").strip()
+            html_content.append(f"<h{level}>{heading_text}</h{level}>")
+        elif line.startswith("-"):
+            if not in_ul:
+                html_content.append("<ul>")
+                in_ul = True
+            html_content.append(f"<li>{line[1:].strip()}</li>")
+        elif line.startswith("*"):
+            if not in_ol:
+                html_content.append("<ol>")
+                in_ol = True
+            html_content.append(f"<li>{line[1:].strip()}</li>")
+        else:
+            if in_ul:
+                html_content.append("</ul>")
+                in_ul = False
+            if in_ol:
+                html_content.append("</ol>")
+                in_ol = False
+            if line:
+                if html_content and html_content[-1].startswith("<p>"):
+                    html_content[-1] += f"<br/>{line}"
+                else:
+                    html_content.append(f"<p>{line}</p>")
+    
+    if in_ul:
+        html_content.append("</ul>")
+    if in_ol:
+        html_content.append("</ol>")
+
+    with open(html_file, "w") as file:
+        file.write("\n".join(html_content))
+    
+    sys.exit(0)`
