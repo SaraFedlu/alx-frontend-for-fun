@@ -1,6 +1,8 @@
 #!/usr/bin/python3
 """
-markdown2html.py: Converts a Markdown file to an HTML file.
+markdown2html.py:
+Converts a Markdown
+file to an HTML file.
 """
 
 import sys
@@ -87,4 +89,4 @@ if __name__ == "__main__":
     with open(html_file, "w") as file:
         file.write("\n".join(html_content))
     
-    sys.exit(0)`
+    sys.exit(0)
